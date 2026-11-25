@@ -1,7 +1,8 @@
 import * as pdfjsLib from 'pdfjs-dist'
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl
+// A new URL bypasses cached responses served with the old non-JavaScript MIME type.
+pdfjsLib.GlobalWorkerOptions.workerSrc = `${workerUrl}?v=mime-fix-2`
 type PositionedText = { str: string; x: number; y: number }
 
 const pageToLines = async (page: Awaited<ReturnType<Awaited<ReturnType<typeof pdfjsLib.getDocument>['promise']>['getPage']>>) => {
