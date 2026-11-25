@@ -2,6 +2,7 @@ import { useCallback, useMemo, useRef, useState } from 'react'
 import { AlertCircle, ArrowLeft, Award, BriefcaseBusiness, CalendarRange, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, CircleAlert, Clock3, Download, FileCheck2, HeartPulse, Info, LockKeyhole, Printer, Search, ShieldCheck, SlidersHorizontal, Sparkles, UploadCloud, WalletCards, X } from 'lucide-react'
 import './App.css'
 import { PrintReport } from './PrintReport'
+import { Administration, BrandLogo, BrandingProvider } from './Branding'
 import { analyzeCnisText, formatCurrency, formatMonths, indicatorLabel } from './lib/cnis'
 import { extractPdfText } from './lib/pdf'
 import { calculateAgeMonths, calculateRetirement, type RetirementSex } from './lib/retirement'
@@ -99,10 +100,12 @@ function CompetenciesView({ analysis }: { analysis: CnisAnalysis }) {
 }
 
 function UploadScreen({ onAnalyze, loading, progress, error, sex, onSexChange }: { onAnalyze: (file: File) => void; loading: boolean; progress: number; error?: string; sex?: RetirementSex; onSexChange: (sex: RetirementSex) => void }) {
+  const [adminOpen, setAdminOpen] = useState(false)
   const input = useRef<HTMLInputElement>(null); const [dragging, setDragging] = useState(false)
   const accept = (files: FileList | null) => files?.[0] && onAnalyze(files[0])
   return <main className="upload-page">
-    <header className="topbar"><div className="brand"><img src="/kode-cnis.png" alt="KODE CNIS" className="kode-logo"/></div><div className="privacy-pill"><LockKeyhole size={15} /> Análise local e privada</div></header>
+    <header className="topbar"><div className="brand"><BrandLogo className="kode-logo"/></div><button className="admin-toggle" onClick={() => setAdminOpen(value => !value)} aria-expanded={adminOpen}>{adminOpen ? 'Voltar à importação' : 'Administração'}</button><div className="privacy-pill"><LockKeyhole size={15} /> Análise local e privada</div></header>
+    {adminOpen && <div className="landing-admin"><Administration/></div>}
     <section className="hero">
       <div className="eyebrow"><Sparkles size={16} /> Leitura inteligente do extrato previdenciário</div>
       <h1>Entenda seu CNIS<br/><span>sem se perder nos códigos.</span></h1>
@@ -161,7 +164,7 @@ function FindingCard({ finding }: { finding: Finding }) {
 }
 
 function Dashboard({ analysis, sex, setSex, onReset }: { analysis: CnisAnalysis; sex: RetirementSex; setSex: (sex: RetirementSex) => void; onReset: () => void }) {
-  const [tab, setTab] = useState<'overview' | 'relations' | 'competencies'>('overview'); const [filter, setFilter] = useState<'all' | Severity>('all')
+  const [tab, setTab] = useState<'overview' | 'relations' | 'competencies' | 'admin'>('overview'); const [filter, setFilter] = useState<'all' | Severity>('all')
   const displayedFindings = useMemo(() => analysis.findings.filter(item => filter === 'all' || item.severity === filter), [analysis.findings, filter])
   const high = analysis.findings.filter(item => item.severity === 'critical').length; const attention = analysis.findings.filter(item => item.severity === 'attention').length
   const benefitCount = analysis.relations.filter(item => item.kind === 'benefit').length
@@ -170,10 +173,11 @@ function Dashboard({ analysis, sex, setSex, onReset }: { analysis: CnisAnalysis;
   const downloadJson = () => { const safe = { ...analysis, rawText: undefined }; const url = URL.createObjectURL(new Blob([JSON.stringify(safe, null, 2)], { type: 'application/json' })); const link = document.createElement('a'); link.href = url; link.download = `analise-cnis-${new Date().toISOString().slice(0, 10)}.json`; link.click(); URL.revokeObjectURL(url) }
 
   return <div className="app-shell">
-    <aside><div className="brand"><img src="/kode-cnis.png" alt="KODE CNIS" className="kode-logo"/></div><nav>
+    <aside><div className="brand"><BrandLogo className="kode-logo"/></div><nav>
       <button className={tab === 'overview' ? 'active' : ''} onClick={() => setTab('overview')}><Sparkles/>Visão geral</button>
       <button className={tab === 'relations' ? 'active' : ''} onClick={() => setTab('relations')}><BriefcaseBusiness/>Vínculos</button>
       <button className={tab === 'competencies' ? 'active' : ''} onClick={() => setTab('competencies')}><WalletCards/>Competências</button>
+      <button className={tab === 'admin' ? 'active' : ''} onClick={() => setTab('admin')}><SlidersHorizontal/>Administração</button>
     </nav><div className="aside-note"><LockKeyhole/><div><strong>Processamento local</strong><span>O PDF não saiu deste dispositivo.</span></div></div><button className="new-analysis" onClick={onReset}><ArrowLeft/>Analisar outro PDF</button></aside>
     <main className="dashboard">
       <header className="dashboard-header"><div><span>Extrato analisado</span><h1>{analysis.person.name || 'Segurado(a)'}{ageYears !== undefined && <small className="age-badge">{ageYears} anos</small>}</h1><p>CPF {analysis.person.cpf || 'Não identificado'} · NIT {analysis.person.nit || 'Não identificado'} · {analysis.relations.length} relações</p></div><div className="header-actions"><button onClick={downloadJson}><Download/>Exportar dados</button><button onClick={() => window.print()}><Printer/>Imprimir relatório</button></div></header>
@@ -186,16 +190,19 @@ function Dashboard({ analysis, sex, setSex, onReset }: { analysis: CnisAnalysis;
       </>}
       {tab === 'relations' && <RelationsView analysis={analysis}/>} 
       {tab === 'competencies' && <CompetenciesView analysis={analysis}/>} 
+      {tab === 'admin' && <Administration/>}
       <section className="legal-note"><ShieldCheck/><div><strong>Como interpretar este relatório</strong><p>A ferramenta organiza o conteúdo do PDF e aplica verificações automáticas. O tempo é potencial, calculado por competências e períodos do extrato, sem avaliar atividade especial, rural, RPPS, carência específica, regras de transição ou documentos externos. A decisão final pertence ao INSS.</p></div></section>
       <PrintReport analysis={analysis} sex={sex}/>
     </main>
   </div>
 }
 
-export default function App() {
+function Application() {
   const [sex, setSex] = useState<RetirementSex>()
   const [analysis, setAnalysis] = useState<CnisAnalysis>(); const [loading, setLoading] = useState(false); const [progress, setProgress] = useState(0); const [error, setError] = useState<string>()
   const analyze = useCallback(async (file: File) => { if (!sex) { setError('Selecione Mulher ou Homem antes de importar o PDF.'); return } setLoading(true); setError(undefined); setProgress(3); try { const result = await extractPdfText(file, value => setProgress(value)); setAnalysis(analyzeCnisText(result.text, file.name, result.pages)) } catch (reason) { setError(reason instanceof Error ? reason.message : 'Não foi possível analisar o arquivo.') } finally { setLoading(false) } }, [sex])
   if (analysis && sex) return <Dashboard analysis={analysis} sex={sex} setSex={setSex} onReset={() => { setAnalysis(undefined); setProgress(0); setSex(undefined) }}/>
   return <UploadScreen onAnalyze={analyze} loading={loading} progress={progress} error={error} sex={sex} onSexChange={value => { setSex(value); setError(undefined) }}/>
 }
+
+export default function App() { return <BrandingProvider><Application/></BrandingProvider> }
