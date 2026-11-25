@@ -9,6 +9,13 @@ const analysis = {
 
 describe('retirement scenarios', () => {
   const referenceDate = new Date(2026, 10, 23)
+  it('lists both age and contribution deficits when both are missing', () => {
+    const shortHistory = { ...analysis, validPotentialMonths: 12 }
+    const result = calculateRetirement(shortHistory, 'male', referenceDate)
+    const ageRule = result.rules.find(rule => rule.id === 'age')!
+    expect(ageRule.statusText).toContain('de idade e')
+    expect(ageRule.statusText).toContain('de contribuição')
+  })
 
   it('uses the official 2026 progressive requirements for women', () => {
     const result = calculateRetirement(analysis, 'female', referenceDate)

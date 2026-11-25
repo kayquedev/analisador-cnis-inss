@@ -83,6 +83,10 @@ export const calculateRetirement = (
   const permanentAgeMet = ageMonths >= permanentAgeMonths
   const ageContributionMet = contributionMonths >= ageRuleContributionMonths
   const acquiredRight = contributionAtReformMonths >= requiredContributionMonths
+  const remainingRequirements = (requiredAge: number, requiredTime: number) => {
+    const missing = [ageMonths < requiredAge ? `${formatDuration(requiredAge - ageMonths)} de idade` : '', contributionMonths < requiredTime ? `${formatDuration(requiredTime - contributionMonths)} de contribuição` : ''].filter(Boolean)
+    return missing.length ? `Faltam ${missing.join(' e ')}` : 'Requisitos calculados atingidos; conferir carência'
+  }
   const pointsStatusText = pointsMet && timeMet
     ? 'Requisitos potenciais atingidos'
     : !pointsMet && !timeMet
@@ -96,20 +100,20 @@ export const calculateRetirement = (
       id: 'points', title: 'Regra dos pontos', current: `${formatPoints(points)} pontos`, required: `${requiredPoints} pontos + ${isFemale ? 30 : 35} anos`,
       progress: progress(points, requiredPoints), status: pointsMet && timeMet ? 'eligible' : 'pending',
       statusText: pointsStatusText,
-      detail: `Pontuação estimada pela soma da idade e do tempo potencial em ${year}. A apuração oficial é feita em dias.`,
+      detail: `Pontuação estimada pela soma da idade e do tempo calculado em ${year}. A apuração oficial é feita em dias.`,
     },
     {
       id: 'progressive-age', title: 'Idade mínima progressiva', current: formatDuration(ageMonths), required: `${formatDuration(progressiveAgeMonths)} + ${isFemale ? 30 : 35} anos`,
       progress: progress(Math.min(ageMonths / progressiveAgeMonths, contributionMonths / requiredContributionMonths), 1),
       status: progressiveAgeMet && timeMet ? 'eligible' : 'pending',
-      statusText: progressiveAgeMet && timeMet ? 'Requisitos potenciais atingidos' : !progressiveAgeMet ? `Faltam ${formatDuration(progressiveAgeMonths - ageMonths)} de idade` : `Faltam ${formatDuration(requiredContributionMonths - contributionMonths)} de contribuição`,
+      statusText: remainingRequirements(progressiveAgeMonths, requiredContributionMonths),
       detail: `Regra de transição com idade crescente em seis meses por ano, limitada a 62/65 anos.`,
     },
     {
       id: 'age', title: 'Aposentadoria por idade', current: formatDuration(ageMonths), required: `${formatDuration(permanentAgeMonths)} + ${formatDuration(ageRuleContributionMonths)}`,
       progress: progress(Math.min(ageMonths / permanentAgeMonths, contributionMonths / ageRuleContributionMonths), 1),
       status: permanentAgeMet && ageContributionMet ? 'eligible' : 'pending',
-      statusText: permanentAgeMet && ageContributionMet ? 'Requisitos potenciais atingidos' : !permanentAgeMet ? `Faltam ${formatDuration(permanentAgeMonths - ageMonths)} de idade` : `Faltam ${formatDuration(ageRuleContributionMonths - contributionMonths)} de contribuição`,
+      statusText: remainingRequirements(permanentAgeMonths, ageRuleContributionMonths),
       detail: preReformAffiliate ? 'Cenário para pessoa filiada antes da EC 103/2019: carência/tempo mínimo estimado em 15 anos.' : `Filiação posterior à reforma: cenário de ${isFemale ? 15 : 20} anos de contribuição.`,
     },
     {

@@ -1,7 +1,8 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { AlertCircle, ArrowLeft, Award, BriefcaseBusiness, CalendarRange, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, CircleAlert, Clock3, Download, FileCheck2, HeartPulse, Info, LockKeyhole, Printer, Search, ShieldCheck, SlidersHorizontal, Sparkles, UploadCloud, WalletCards, X } from 'lucide-react'
 import './App.css'
-import { analyzeCnisText, formatCurrency, formatMonths, indicatorLabel, maskCpf } from './lib/cnis'
+import { PrintReport } from './PrintReport'
+import { analyzeCnisText, formatCurrency, formatMonths, indicatorLabel } from './lib/cnis'
 import { extractPdfText } from './lib/pdf'
 import { calculateAgeMonths, calculateRetirement, type RetirementSex } from './lib/retirement'
 import type { CnisAnalysis, Finding, Relation, Severity } from './types'
@@ -97,7 +98,7 @@ function CompetenciesView({ analysis }: { analysis: CnisAnalysis }) {
   </section>
 }
 
-function UploadScreen({ onAnalyze, loading, progress, error }: { onAnalyze: (file: File) => void; loading: boolean; progress: number; error?: string }) {
+function UploadScreen({ onAnalyze, loading, progress, error, sex, onSexChange }: { onAnalyze: (file: File) => void; loading: boolean; progress: number; error?: string; sex?: RetirementSex; onSexChange: (sex: RetirementSex) => void }) {
   const input = useRef<HTMLInputElement>(null); const [dragging, setDragging] = useState(false)
   const accept = (files: FileList | null) => files?.[0] && onAnalyze(files[0])
   return <main className="upload-page">
@@ -106,6 +107,7 @@ function UploadScreen({ onAnalyze, loading, progress, error }: { onAnalyze: (fil
       <div className="eyebrow"><Sparkles size={16} /> Leitura inteligente do extrato previdenciário</div>
       <h1>Entenda seu CNIS<br/><span>sem se perder nos códigos.</span></h1>
       <p>Envie o extrato completo e receba uma leitura organizada de vínculos, contribuições, lacunas e indicadores que merecem conferência.</p>
+      <fieldset className="import-sex" disabled={loading}><legend>Informe o sexo para a simulação previdenciária</legend><label><input type="radio" name="sex" value="female" checked={sex === 'female'} onChange={() => onSexChange('female')}/> Mulher</label><label><input type="radio" name="sex" value="male" checked={sex === 'male'} onChange={() => onSexChange('male')}/> Homem</label><p>Escolha uma opção antes de importar o PDF.</p></fieldset>
       <div className={`dropzone ${dragging ? 'dragging' : ''} ${loading ? 'loading' : ''}`} onDragOver={event => { event.preventDefault(); setDragging(true) }} onDragLeave={() => setDragging(false)} onDrop={event => { event.preventDefault(); setDragging(false); accept(event.dataTransfer.files) }} onClick={() => !loading && input.current?.click()}>
         <input ref={input} type="file" accept="application/pdf,.pdf" onChange={event => accept(event.target.files)} hidden />
         {loading ? <><div className="progress-ring"><span>{progress}%</span></div><h2>Lendo o seu extrato…</h2><p>Identificando vínculos, competências e indicadores.</p><div className="progress-track"><span style={{ width: `${progress}%` }} /></div></> : <>
@@ -127,8 +129,7 @@ function SummaryCard({ icon: Icon, label, value, detail, tone = 'blue' }: { icon
   return <div className={`summary-card ${tone}`}><div className="summary-icon"><Icon/></div><div><span>{label}</span><strong>{value}</strong><small>{detail}</small></div></div>
 }
 
-function RetirementPanel({ analysis }: { analysis: CnisAnalysis }) {
-  const [sex, setSex] = useState<RetirementSex>('female')
+function RetirementPanel({ analysis, sex, setSex }: { analysis: CnisAnalysis; sex: RetirementSex; setSex: (sex: RetirementSex) => void }) {
   const snapshot = useMemo(() => calculateRetirement(analysis, sex), [analysis, sex])
   const reference = snapshot.referenceDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
   return <section className="retirement-panel">
@@ -159,7 +160,7 @@ function FindingCard({ finding }: { finding: Finding }) {
   return <article className={`finding ${finding.severity}`}><button type="button" onClick={() => setOpen(value => !value)}><span className="finding-icon"><Icon size={20}/></span><span className="finding-main"><small>{meta.label}{finding.period ? ` · ${finding.period}` : ''}</small><strong>{finding.title}</strong><span>{finding.description}</span></span><ChevronDown className={open ? 'rotated' : ''}/></button>{open && <div className="finding-detail"><div><b>Próximo passo sugerido</b><p>{finding.action}</p></div>{finding.evidence && <code>{finding.evidence}</code>}</div>}</article>
 }
 
-function Dashboard({ analysis, onReset }: { analysis: CnisAnalysis; onReset: () => void }) {
+function Dashboard({ analysis, sex, setSex, onReset }: { analysis: CnisAnalysis; sex: RetirementSex; setSex: (sex: RetirementSex) => void; onReset: () => void }) {
   const [tab, setTab] = useState<'overview' | 'relations' | 'competencies'>('overview'); const [filter, setFilter] = useState<'all' | Severity>('all')
   const displayedFindings = useMemo(() => analysis.findings.filter(item => filter === 'all' || item.severity === filter), [analysis.findings, filter])
   const high = analysis.findings.filter(item => item.severity === 'critical').length; const attention = analysis.findings.filter(item => item.severity === 'attention').length
@@ -175,24 +176,26 @@ function Dashboard({ analysis, onReset }: { analysis: CnisAnalysis; onReset: () 
       <button className={tab === 'competencies' ? 'active' : ''} onClick={() => setTab('competencies')}><WalletCards/>Competências</button>
     </nav><div className="aside-note"><LockKeyhole/><div><strong>Processamento local</strong><span>O PDF não saiu deste dispositivo.</span></div></div><button className="new-analysis" onClick={onReset}><ArrowLeft/>Analisar outro PDF</button></aside>
     <main className="dashboard">
-      <header className="dashboard-header"><div><span>Extrato analisado</span><h1>{analysis.person.name || 'Segurado(a)'}{ageYears !== undefined && <small className="age-badge">{ageYears} anos</small>}</h1><p>CPF {maskCpf(analysis.person.cpf)} · {analysis.pages} páginas · {analysis.relations.length} relações · leitura {analysis.extractionConfidence}%</p></div><div className="header-actions"><button onClick={downloadJson}><Download/>Exportar dados</button><button onClick={() => window.print()}><Printer/>Imprimir relatório</button></div></header>
+      <header className="dashboard-header"><div><span>Extrato analisado</span><h1>{analysis.person.name || 'Segurado(a)'}{ageYears !== undefined && <small className="age-badge">{ageYears} anos</small>}</h1><p>CPF {analysis.person.cpf || 'Não identificado'} · NIT {analysis.person.nit || 'Não identificado'} · {analysis.relations.length} relações</p></div><div className="header-actions"><button onClick={downloadJson}><Download/>Exportar dados</button><button onClick={() => window.print()}><Printer/>Imprimir relatório</button></div></header>
       {tab === 'overview' && <>
         <section className="status-banner"><div className="status-score">{high ? <CircleAlert/> : <CheckCircle2/>}</div><div><small>Resultado da conferência automática</small><h2>{high ? `${high} ${high === 1 ? 'ponto prioritário' : 'pontos prioritários'} encontrado${high === 1 ? '' : 's'}` : 'Nenhuma pendência crítica detectada'}</h2><p>{attention} alertas adicionais merecem conferência documental. Os números abaixo são estimativas e não constituem reconhecimento de direito.</p></div></section>
-        <section className="summary-grid"><SummaryCard icon={Clock3} label="Tempo potencial" value={formatMonths(analysis.validPotentialMonths)} detail={`${analysis.excludedLowMonths} competências abaixo do mínimo excluídas da estimativa`} /><SummaryCard icon={BriefcaseBusiness} label="Relações previdenciárias" value={analysis.relations.length} detail={`${workRelationCount} vínculos/recolhimentos · ${benefitCount} benefícios`} tone="green" /><SummaryCard icon={CalendarRange} label="Intervalos sem vínculo" value={analysis.gaps.length} detail={`${analysis.gaps.reduce((sum, gap) => sum + gap.months, 0)} meses entre períodos`} tone="amber" /><SummaryCard icon={AlertCircle} label="Pontos para revisar" value={high + attention} detail={`${analysis.indicators.length} indicadores distintos no documento`} tone="red" /></section>
-        <RetirementPanel analysis={analysis}/>
+        <section className="summary-grid"><SummaryCard icon={Clock3} label="Tempo calculado" value={formatMonths(analysis.validPotentialMonths)} detail={`${analysis.excludedLowMonths} competências abaixo do mínimo excluídas da estimativa`} /><SummaryCard icon={BriefcaseBusiness} label="Relações previdenciárias" value={analysis.relations.length} detail={`${workRelationCount} vínculos/recolhimentos · ${benefitCount} benefícios`} tone="green" /><SummaryCard icon={CalendarRange} label="Intervalos sem vínculo" value={analysis.gaps.length} detail={`${analysis.gaps.reduce((sum, gap) => sum + gap.months, 0)} meses entre períodos`} tone="amber" /><SummaryCard icon={AlertCircle} label="Pontos para revisar" value={high + attention} detail={`${analysis.indicators.length} indicadores distintos no documento`} tone="red" /></section>
+        <RetirementPanel analysis={analysis} sex={sex} setSex={setSex}/>
         <BenefitsPanel analysis={analysis}/>
         <section className="content-section findings-section"><div className="section-heading"><div><span>Leitura orientada</span><h2>O que merece sua atenção</h2></div><div className="filters"><button className={filter === 'all' ? 'active' : ''} onClick={() => setFilter('all')}>Todos</button><button className={filter === 'critical' ? 'active' : ''} onClick={() => setFilter('critical')}>Prioridade</button><button className={filter === 'attention' ? 'active' : ''} onClick={() => setFilter('attention')}>Atenção</button></div></div><div className="findings-list">{displayedFindings.length ? displayedFindings.map(item => <FindingCard finding={item} key={item.id}/>) : <div className="empty"><CheckCircle2/><strong>Nenhum item neste filtro</strong></div>}</div></section>
       </>}
       {tab === 'relations' && <RelationsView analysis={analysis}/>} 
       {tab === 'competencies' && <CompetenciesView analysis={analysis}/>} 
       <section className="legal-note"><ShieldCheck/><div><strong>Como interpretar este relatório</strong><p>A ferramenta organiza o conteúdo do PDF e aplica verificações automáticas. O tempo é potencial, calculado por competências e períodos do extrato, sem avaliar atividade especial, rural, RPPS, carência específica, regras de transição ou documentos externos. A decisão final pertence ao INSS.</p></div></section>
+      <PrintReport analysis={analysis} sex={sex}/>
     </main>
   </div>
 }
 
 export default function App() {
+  const [sex, setSex] = useState<RetirementSex>()
   const [analysis, setAnalysis] = useState<CnisAnalysis>(); const [loading, setLoading] = useState(false); const [progress, setProgress] = useState(0); const [error, setError] = useState<string>()
-  const analyze = useCallback(async (file: File) => { setLoading(true); setError(undefined); setProgress(3); try { const result = await extractPdfText(file, value => setProgress(value)); setAnalysis(analyzeCnisText(result.text, file.name, result.pages)) } catch (reason) { setError(reason instanceof Error ? reason.message : 'Não foi possível analisar o arquivo.') } finally { setLoading(false) } }, [])
-  if (analysis) return <Dashboard analysis={analysis} onReset={() => { setAnalysis(undefined); setProgress(0) }}/>
-  return <UploadScreen onAnalyze={analyze} loading={loading} progress={progress} error={error}/>
+  const analyze = useCallback(async (file: File) => { if (!sex) { setError('Selecione Mulher ou Homem antes de importar o PDF.'); return } setLoading(true); setError(undefined); setProgress(3); try { const result = await extractPdfText(file, value => setProgress(value)); setAnalysis(analyzeCnisText(result.text, file.name, result.pages)) } catch (reason) { setError(reason instanceof Error ? reason.message : 'Não foi possível analisar o arquivo.') } finally { setLoading(false) } }, [sex])
+  if (analysis && sex) return <Dashboard analysis={analysis} sex={sex} setSex={setSex} onReset={() => { setAnalysis(undefined); setProgress(0); setSex(undefined) }}/>
+  return <UploadScreen onAnalyze={analyze} loading={loading} progress={progress} error={error} sex={sex} onSexChange={value => { setSex(value); setError(undefined) }}/>
 }
