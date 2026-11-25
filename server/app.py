@@ -230,6 +230,12 @@ class Handler(BaseHTTPRequestHandler):
                 row = db.execute('SELECT * FROM users WHERE id=?', (target,)).fetchone()
                 if not row:
                     return self.reply(404, {'error': 'Usuário não encontrado.'})
+                name = data.get('name', row['name'])
+                if not isinstance(name, str) or not name.strip() or len(name.strip()) > 100:
+                    return self.reply(400, {'error': 'Informe um nome de até 100 caracteres.'})
+                cpf = cpf_value(data.get('cpf', row['cpf']))
+                if db.execute('SELECT id FROM users WHERE cpf=? AND id<>?', (cpf, target)).fetchone():
+                    return self.reply(409, {'error': 'Já existe uma conta com esse CPF.'})
                 password = None
                 if 'password' in data:
                     try:
@@ -244,7 +250,11 @@ class Handler(BaseHTTPRequestHandler):
                     db.execute('UPDATE users SET active=? WHERE id=?', (int(data['active']), target))
                 if 'password' in data:
                     db.execute('UPDATE users SET password=? WHERE id=?', (password, target))
-                db.execute('DELETE FROM sessions WHERE user_id=?', (target,))
+                db.execute('UPDATE users SET name=?,cpf=? WHERE id=?', (name.strip(), cpf, target))
+                if 'active' in data or 'password' in data:
+                    db.execute('DELETE FROM sessions WHERE user_id=?', (target,))
+                elif cpf != row['cpf']:
+                    db.execute('DELETE FROM sessions WHERE user_id=? AND token<>?', (target, token))
                 return self.reply(200, {'ok': True})
         return self.reply(404, {'error': 'Recurso não encontrado.'})
 

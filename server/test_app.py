@@ -61,6 +61,27 @@ class AccountsTest(unittest.TestCase):
         self.assertEqual(self.request('logout', 'POST', {}, cookie)[0], 200)
         self.assertEqual(self.request('me', cookie=cookie)[0], 401)
 
+    def test_edit_user_preserves_identity_and_password(self):
+        _, _, cookie = self.request('login', 'POST', {'cpf': '11111111111', 'password': 'admin1'})
+        self.request('users', 'POST', {'cpf': '22222222222', 'name': 'Before', 'password': 'abc123'}, cookie)
+        _, other, other_cookie = self.request('login', 'POST', {'cpf': '22222222222', 'password': 'abc123'})
+        identifier = other['user']['id']
+        self.request('branding', 'PUT', {'name': 'Preserved Brand'}, other_cookie)
+        self.assertEqual(self.request('users/' + identifier, 'PUT', {'name': 'Corrected', 'cpf': '333.333.333-33'}, other_cookie)[0], 403)
+        self.assertEqual(self.request('users/' + identifier, 'PUT', {'name': 'Wrong', 'cpf': '11111111111'}, cookie)[0], 409)
+        self.assertEqual(self.request('users/' + identifier, 'PUT', {'name': ' '}, cookie)[0], 400)
+        self.assertEqual(self.request('me', cookie=other_cookie)[1]['user']['name'], 'Before')
+        self.assertEqual(self.request('users/' + identifier, 'PUT', {'name': 'Corrected', 'cpf': '333.333.333-33'}, cookie)[0], 200)
+        self.assertEqual(self.request('me', cookie=other_cookie)[0], 401)
+        self.assertEqual(self.request('login', 'POST', {'cpf': '22222222222', 'password': 'abc123'})[0], 401)
+        status, edited, _ = self.request('login', 'POST', {'cpf': '33333333333', 'password': 'abc123'})
+        self.assertEqual(status, 200)
+        self.assertEqual(edited['user']['id'], identifier)
+        self.assertEqual(edited['user']['name'], 'Corrected')
+        self.assertEqual(edited['branding']['name'], 'Preserved Brand')
+        self.assertEqual(self.request('users/admin-test', 'PUT', {'name': 'Admin Corrected', 'cpf': '44444444444'}, cookie)[0], 200)
+        self.assertEqual(self.request('me', cookie=cookie)[1]['user']['name'], 'Admin Corrected')
+
     def test_password_policy_and_login_throttling(self):
         for password in ('123456', 'abcdef', 'a1234'):
             with self.assertRaises(ValueError):
