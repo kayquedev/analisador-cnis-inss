@@ -3,6 +3,7 @@ import { AlertCircle, ArrowLeft, Award, BriefcaseBusiness, CalendarRange, CheckC
 import './App.css'
 import { PrintReport } from './PrintReport'
 import { Administration, BrandLogo, BrandingProvider } from './Branding'
+import { AuthGate } from './Auth'
 import { analyzeCnisText, formatCurrency, formatMonths, indicatorLabel } from './lib/cnis'
 import { extractPdfText } from './lib/pdf'
 import { calculateAgeMonths, calculateRetirement, type RetirementSex } from './lib/retirement'
@@ -205,4 +206,4 @@ function Application() {
   return <UploadScreen onAnalyze={analyze} loading={loading} progress={progress} error={error} sex={sex} onSexChange={value => { setSex(value); setError(undefined) }}/>
 }
 
-export default function App() { return <BrandingProvider><Application/></BrandingProvider> }
+export default function App() { return <AuthGate><BrandingProvider><Application/></BrandingProvider></AuthGate> }

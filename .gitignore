@@ -9,3 +9,5 @@ tmp
 validacao-*.jpg
 *.tar.gz
 .env.*
+*.sqlite3*
+__pycache__/

@@ -1,5 +1,5 @@
 import { renderToStaticMarkup } from 'react-dom/server'
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { BrandingProvider } from './Branding'
 import { PrintReport } from './PrintReport'
 import type { CnisAnalysis } from './types'
@@ -8,13 +8,12 @@ const analysis = { person: { name: 'PESSOA TESTE', cpf: '123.456.789-00', birthD
 
 describe('print report', () => {
   it('uses saved branding and displays each recorded interval duration', () => {
-    vi.stubGlobal('localStorage', { getItem: () => JSON.stringify({ name: 'Escritório Exemplo', logo: 'data:image/png;base64,AAAA', document: '12.345.678/0001-90', role: 'Assistente social', council: 'CRESS', councilNumber: '12345 - MG' }) })
-    try {
+    const branding = { name: 'Escritório Exemplo', logo: 'data:image/png;base64,AAAA', document: '12.345.678/0001-90', role: 'Assistente social', council: 'CRESS', councilNumber: '12345 - MG' }
       const intervals = { ...analysis, relations: [
         { id: 1, kind: 'employment', origin: 'EMPRESA EXEMPLO', start: '01/01/2020', end: '31/12/2020' },
         { id: 2, kind: 'benefit', origin: 'Benefício', start: '28/02/2024', end: '29/02/2024' },
       ] } as CnisAnalysis
-      const html = renderToStaticMarkup(<BrandingProvider><PrintReport analysis={intervals} sex="male"/></BrandingProvider>)
+      const html = renderToStaticMarkup(<BrandingProvider initialBranding={branding}><PrintReport analysis={intervals} sex="male"/></BrandingProvider>)
       expect(html).toContain('Escritório Exemplo')
       expect(html).toContain('RELATÓRIO PREVIDENCIÁRIO')
       expect(html).toContain('CPF/CNPJ: 12.345.678/0001-90')
@@ -23,7 +22,6 @@ describe('print report', () => {
       expect(html).toContain('Duração do período')
       expect(html).toContain('1 ano')
       expect(html).toContain('2 dias')
-    } finally { vi.unstubAllGlobals() }
   })
   it('prints full identity and requirements for the selected sex without dashboard elements', () => {
     const male = renderToStaticMarkup(<PrintReport analysis={analysis} sex="male"/>)

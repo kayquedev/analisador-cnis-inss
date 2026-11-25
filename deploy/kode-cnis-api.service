@@ -1,0 +1,23 @@
+[Unit]
+Description=KODE CNIS accounts API
+After=network.target
+
+[Service]
+User=kode-cnis
+Group=kode-cnis
+WorkingDirectory=/opt/kode-cnis-api
+ExecStart=/usr/bin/python3 /opt/kode-cnis-api/app.py
+Environment=CNIS_DATABASE=/var/lib/kode-cnis/accounts.sqlite3
+Environment=CNIS_ORIGIN=https://cnis.kodesaude.com.br
+Environment=CNIS_PORT=8137
+Environment=CNIS_SECURE_COOKIE=1
+Restart=on-failure
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/kode-cnis
+
+[Install]
+WantedBy=multi-user.target
