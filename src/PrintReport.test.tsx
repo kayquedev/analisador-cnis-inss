@@ -8,7 +8,7 @@ const analysis = { person: { name: 'PESSOA TESTE', cpf: '123.456.789-00', birthD
 
 describe('print report', () => {
   it('uses saved branding and displays each recorded interval duration', () => {
-    vi.stubGlobal('localStorage', { getItem: () => JSON.stringify({ name: 'Escritório Exemplo', logo: 'data:image/png;base64,AAAA' }) })
+    vi.stubGlobal('localStorage', { getItem: () => JSON.stringify({ name: 'Escritório Exemplo', logo: 'data:image/png;base64,AAAA', document: '12.345.678/0001-90', role: 'Assistente social', council: 'CRESS', councilNumber: '12345 - MG' }) })
     try {
       const intervals = { ...analysis, relations: [
         { id: 1, kind: 'employment', origin: 'EMPRESA EXEMPLO', start: '01/01/2020', end: '31/12/2020' },
@@ -16,6 +16,9 @@ describe('print report', () => {
       ] } as CnisAnalysis
       const html = renderToStaticMarkup(<BrandingProvider><PrintReport analysis={intervals} sex="male"/></BrandingProvider>)
       expect(html).toContain('Escritório Exemplo')
+      expect(html).toContain('RELATÓRIO PREVIDENCIÁRIO')
+      expect(html).toContain('CPF/CNPJ: 12.345.678/0001-90')
+      expect(html).toContain('Assistente social — CRESS — 12345 - MG')
       expect(html).toContain('data:image/png;base64,AAAA')
       expect(html).toContain('Duração do período')
       expect(html).toContain('1 ano')
